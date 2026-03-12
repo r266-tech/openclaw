@@ -58,4 +58,66 @@ describe("dropThinkingBlocks", () => {
     const assistant = result[0] as Extract<AgentMessage, { role: "assistant" }>;
     expect(assistant.content).toEqual([{ type: "text", text: "" }]);
   });
+
+  it("drops redacted_thinking blocks while preserving non-thinking content", () => {
+    const messages: AgentMessage[] = [
+      castAgentMessage({
+        role: "assistant",
+        content: [
+          { type: "redacted_thinking", data: "AQID" },
+          { type: "text", text: "response" },
+        ],
+      }),
+    ];
+
+    const result = dropThinkingBlocks(messages);
+    const assistant = result[0] as Extract<AgentMessage, { role: "assistant" }>;
+    expect(result).not.toBe(messages);
+    expect(assistant.content).toEqual([{ type: "text", text: "response" }]);
+  });
+
+  it("drops both thinking and redacted_thinking blocks in the same message", () => {
+    const messages: AgentMessage[] = [
+      castAgentMessage({
+        role: "assistant",
+        content: [
+          { type: "thinking", thinking: "visible thinking" },
+          { type: "redacted_thinking", data: "AQID" },
+          { type: "text", text: "final answer" },
+        ],
+      }),
+    ];
+
+    const result = dropThinkingBlocks(messages);
+    const assistant = result[0] as Extract<AgentMessage, { role: "assistant" }>;
+    expect(assistant.content).toEqual([{ type: "text", text: "final answer" }]);
+  });
+
+  it("keeps assistant turn structure when all blocks are redacted_thinking", () => {
+    const messages: AgentMessage[] = [
+      castAgentMessage({
+        role: "assistant",
+        content: [{ type: "redacted_thinking", data: "AQID" }],
+      }),
+    ];
+
+    const result = dropThinkingBlocks(messages);
+    const assistant = result[0] as Extract<AgentMessage, { role: "assistant" }>;
+    expect(assistant.content).toEqual([{ type: "text", text: "" }]);
+  });
+
+  it("returns the original reference when only non-thinking blocks are present", () => {
+    const messages: AgentMessage[] = [
+      castAgentMessage({
+        role: "assistant",
+        content: [
+          { type: "text", text: "no thinking here" },
+          { type: "toolUse", id: "tu_1", name: "read", input: {} },
+        ],
+      }),
+    ];
+
+    const result = dropThinkingBlocks(messages);
+    expect(result).toBe(messages);
+  });
 });
